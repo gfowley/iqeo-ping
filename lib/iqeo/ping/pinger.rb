@@ -65,7 +65,7 @@ pings.values.collect(&:value)
       Thread.new do
         ping = Net::Ping::ICMP.new(ip,nil,@timeout)
         result = ping.ping
-        { ping: result, time: ping.duration, exception: ping.exception }
+        { ip: ip, ping: result, time: ping.duration, exception: ping.exception }
       end
     end
   end
