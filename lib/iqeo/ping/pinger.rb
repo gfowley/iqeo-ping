@@ -47,12 +47,43 @@ pings.values.collect(&:value)
 ]
 =end
 
-  attr_reader :hostspec, :protocol, :port
+  TIMEOUT = 3
+  PROTOCOL = :icmp
+  PORT = nil
 
-  def initialize ip, protocol: :icmp, port: nil
+  attr_reader :hostspec, :protocol, :port, :timeout, :threads
+
+  def initialize ip, protocol: PROTOCOL, port: PORT, timeout: TIMEOUT
     @hostspec = ip.is_a?( Iqeo::Hostspec::Hostspec ) ? ip : Iqeo::Hostspec::Hostspec.new( ip ) 
     @protocol = protocol
     @port = port
+    @timeout = timeout
+  end
+
+  def start
+    @threads = @hostspec.collect do |ip|
+      Thread.new do
+        ping = Net::Ping::ICMP.new(ip,nil,@timeout)
+        result = ping.ping
+        { ping: result, time: ping.duration, exception: ping.exception }
+      end
+    end
+  end
+
+  def started?
+    !!@threads
+  end
+
+  def running?
+    @threads.any?(&:alive?)
+  end
+
+  def finished?
+    @threads.none?(&:alive?)
+  end
+
+  def results
+    @threads.collect(&:value)
   end
 
 end
