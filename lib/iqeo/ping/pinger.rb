@@ -6,64 +6,34 @@ module Ping
 
 class Pinger
 
-=begin
-pings = {}
-{}
-ips.each { |ip| pings[ip] = Thread.new { p = Net::Ping::ICMP.new(ip) ; { ping: p.ping, time: p.duration, exception: p.exception } } }
-[
-    [0] "10.1.1.1",
-    [1] "10.1.1.2",
-    [2] "10.1.1.3"
-]
-2.2.2 :041 > pings.values.collect(&:alive?)
-[
-    [0] true,
-    [1] true,
-    [2] true
-]
-2.2.2 :042 > pings.values.collect(&:alive?)
-[
-    [0] false,
-    [1] false,
-    [2] false
-]
-pings.values.collect(&:value)                                                                                                                                                    
-[
-    [0] {
-             :ping => false,
-             :time => nil,
-        :exception => #<Timeout::Error: execution expired>
-    },
-    [1] {
-             :ping => false,
-             :time => nil,
-        :exception => #<Timeout::Error: execution expired>
-    },
-    [2] {
-             :ping => false,
-             :time => nil,
-        :exception => #<Timeout::Error: execution expired>
-    }
-]
-=end
-
   TIMEOUT = 3
   PROTOCOL = :icmp
   PORT = nil
+  PORTS = { icmp: nil, tcp: 80, udp: 53 }
 
-  attr_reader :hostspec, :protocol, :port, :timeout, :threads
+  def self.classes
+    unless @classes
+      classes = Net::Ping::constants.collect { |c| Net::Ping::const_get(c) }.select { |val| val.is_a? Class }
+      names = classes.collect { |c| c.name.split('::').last.downcase.to_sym }
+      @classes = Hash[names.zip(classes)]
+    end
+    @classes
+  end
+  
+  attr_reader :hostspec, :protocol, :port, :klass, :timeout, :threads
 
   def initialize ip, protocol: PROTOCOL, port: PORT, timeout: TIMEOUT
     @hostspec = ip.is_a?( Iqeo::Hostspec::Hostspec ) ? ip : Iqeo::Hostspec::Hostspec.new( ip ) 
     @protocol = protocol
-    @port = port
+    @port = port || PORTS[@protocol]
     @timeout = timeout
+    raise "No Net::Ping class for: #{@protocol}" unless @klass = Pinger.classes[@protocol]
   end
 
   def start
     @threads = @hostspec.collect do |ip|
       Thread.new do
-        ping = Net::Ping::ICMP.new(ip,nil,@timeout)
+        ping = @klass.new(ip,@port,@timeout)
         result = ping.ping
         { ip: ip, ping: result, time: ping.duration, exception: ping.exception }
       end

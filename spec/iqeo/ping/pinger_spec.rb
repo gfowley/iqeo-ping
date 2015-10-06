@@ -4,10 +4,41 @@ describe Iqeo::Ping::Pinger do
 
   before( :all ) { `iptables -I INPUT -d 127.0.0.252/30 -j DROP` }
 
-  context '#new' do
-    it( 'accepts an IP address string' ) { expect { Iqeo::Ping::Pinger.new '127.0.0.1' }.to_not raise_error }
-    it( 'accepts a Hostspec' )           { expect { Iqeo::Ping::Pinger.new( Iqeo::Hostspec::Hostspec.new '127.0.0.1' ) }.to_not raise_error }
-    it( 'requires an argument' )         { expect { Iqeo::Ping::Pinger.new }.to raise_error ArgumentError }
+  context '.new' do
+
+    context 'with defaults' do
+      it( 'accepts an IP address string' ) { expect { Iqeo::Ping::Pinger.new '127.0.0.1' }.to_not raise_error }
+      it( 'accepts a Hostspec' )           { expect { Iqeo::Ping::Pinger.new( Iqeo::Hostspec::Hostspec.new '127.0.0.1' ) }.to_not raise_error }
+      it( 'requires an argument' )         { expect { Iqeo::Ping::Pinger.new }.to raise_error ArgumentError }
+    end
+
+    context 'with specifics' do
+     
+      it ( 'accepts timeout' )  { expect( Iqeo::Ping::Pinger.new( '127.0.0.1', timeout: 99).timeout ).to eq 99 }
+
+      context 'ICMP' do
+        before( :all )            { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1', protocol: :icmp, timeout: 99 }
+        it ( 'accepts protocol' ) { expect( @pinger.protocol ).to eq :icmp }
+        it ( 'sets ping class' )  { expect( @pinger.klass ).to eq Net::Ping::ICMP }
+        it ( 'sets port' )        { expect( @pinger.port ).to be nil }
+      end
+
+      context 'TCP' do
+        before( :all )            { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1', protocol: :tcp, timeout: 99 }
+        it ( 'accepts protocol' ) { expect( @pinger.protocol ).to eq :tcp }
+        it ( 'sets ping class' )  { expect( @pinger.klass ).to eq Net::Ping::TCP }
+        it ( 'sets port' )        { expect( @pinger.port ).to be 80 }
+      end
+
+      context 'UDP' do
+        before( :all )            { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1', protocol: :udp, timeout: 99 }
+        it ( 'accepts protocol' ) { expect( @pinger.protocol ).to eq :udp }
+        it ( 'sets ping class' )  { expect( @pinger.klass ).to eq Net::Ping::UDP }
+        it ( 'sets port' )        { expect( @pinger.port ).to be 53 }
+      end
+
+    end
+    
   end
 
   context '#hostspec' do
@@ -15,14 +46,17 @@ describe Iqeo::Ping::Pinger do
     it( 'is passed from #new' )          { expect( Iqeo::Ping::Pinger.new( Iqeo::Hostspec::Hostspec.new '127.0.0.1' ).hostspec ).to be_a Iqeo::Hostspec::Hostspec }
   end
 
+  context '.classes' do
+    it( 'is a hash' )  { expect( Iqeo::Ping::Pinger.classes ).to be_a Hash }
+    it( 'maps names' ) { expect( Iqeo::Ping::Pinger.classes.keys ).to include :icmp, :tcp, :udp }
+    it( 'to classes' ) { expect( Iqeo::Ping::Pinger.classes.values ).to include Net::Ping::ICMP, Net::Ping::TCP, Net::Ping::UDP }
+  end
+
   context 'defaults' do
-
     before( :all ) { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1' }
-
     it( 'protocol' ) { expect( @pinger.protocol ).to eq Iqeo::Ping::Pinger::PROTOCOL }
     it( 'port' )     { expect( @pinger.port ).to eq Iqeo::Ping::Pinger::PORT }
     it( 'timeout' )  { expect( @pinger.timeout ).to eq Iqeo::Ping::Pinger::TIMEOUT }
-
   end
 
   context 'short scan' do
