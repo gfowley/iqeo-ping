@@ -56,6 +56,11 @@ class Pinger
     @threads.collect(&:value)
   end
 
+  def stop
+    @threads.each(&:kill)
+    true
+  end
+
 end
 
 end

@@ -1,4 +1,6 @@
 require 'spec_helper'
+ 
+RSpec::Matchers.define_negated_matcher :not_be_alive, :be_alive
 
 describe Iqeo::Ping::Pinger do
 
@@ -42,8 +44,8 @@ describe Iqeo::Ping::Pinger do
   end
 
   context '#hostspec' do
-    it( 'is created from string' )       { expect( Iqeo::Ping::Pinger.new('127.0.0.1').hostspec ).to be_a Iqeo::Hostspec::Hostspec }
-    it( 'is passed from #new' )          { expect( Iqeo::Ping::Pinger.new( Iqeo::Hostspec::Hostspec.new '127.0.0.1' ).hostspec ).to be_a Iqeo::Hostspec::Hostspec }
+    it( 'is from string' )      { expect( Iqeo::Ping::Pinger.new('127.0.0.1').hostspec ).to be_a Iqeo::Hostspec::Hostspec }
+    it( 'is passed from .new' ) { expect( Iqeo::Ping::Pinger.new( Iqeo::Hostspec::Hostspec.new '127.0.0.1' ).hostspec ).to be_a Iqeo::Hostspec::Hostspec }
   end
 
   context '.classes' do
@@ -53,40 +55,39 @@ describe Iqeo::Ping::Pinger do
   end
 
   context 'defaults' do
-    before( :all ) { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1' }
-    it( 'protocol' ) { expect( @pinger.protocol ).to eq Iqeo::Ping::Pinger::PROTOCOL }
-    it( 'port' )     { expect( @pinger.port ).to eq Iqeo::Ping::Pinger::PORT }
-    it( 'timeout' )  { expect( @pinger.timeout ).to eq Iqeo::Ping::Pinger::TIMEOUT }
+    before( :all )     { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1' }
+    it( '#protocol' )  { expect( @pinger.protocol ).to eq Iqeo::Ping::Pinger::PROTOCOL }
+    it( '#port' )      { expect( @pinger.port ).to eq Iqeo::Ping::Pinger::PORT }
+    it( '#timeout' )   { expect( @pinger.timeout ).to eq Iqeo::Ping::Pinger::TIMEOUT }
   end
 
   context 'short scan' do
 
     before( :all ) { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1-3' }
 
-    it( 'starts' ) do
+    it( '#start' ) do
       expect { @pinger.start }.to_not raise_error
       sleep 0.1 # wait for it
     end
 
     context 'state' do
-      it( 'is started' )          { expect( @pinger ).to be_started }
-      it( 'is running' )          { expect( @pinger ).to_not be_running }
-      it( 'is finished' )         { expect( @pinger ).to be_finished }
+      it( 'is #started?' )  { expect( @pinger ).to be_started }
+      it( 'is #running?' )  { expect( @pinger ).to_not be_running }
+      it( 'is #finished?' ) { expect( @pinger ).to be_finished }
     end
 
-    context 'threads' do
-      it( 'one per host' )        { expect( @pinger.threads.count ).to eq @pinger.hostspec.count }
-      it( 'all finished' )        { expect( @pinger.threads.none?(&:alive?) ).to be true }
+    context '#threads' do
+      it( 'one per host' )  { expect( @pinger.threads.count ).to eq @pinger.hostspec.count }
+      it( 'all finished' )  { expect( @pinger.threads.none?(&:alive?) ).to be true }
     end
 
     context 'finishes' do
-      it( 'successfully' )        { expect( @pinger.threads.first.value[:exception] ).to_not be_a Exception }
+      it( 'successfully' )  { expect( @pinger.threads.first.value[:exception] ).to_not be_a Exception }
     end
 
-    context 'results' do
-      it( 'for number of hosts' ) { expect( @pinger.results.count ).to eq @pinger.hostspec.count }
-      it( 'expected keys' )       { expect( @pinger.results ).to all( include :ip, :ping, :time, :exception ) }
-      it( 'for each host' )       { expect( @pinger.results.collect { |r| r[:ip] } ).to eq [ '127.0.0.1','127.0.0.2','127.0.0.3' ] }
+    context '#results' do
+      it( 'expected keys' ) { expect( @pinger.results ).to all( include :ip, :ping, :time, :exception ) }
+      it( 'for each host' ) { expect( @pinger.results.collect { |r| r[:ip] } ).to eq [ '127.0.0.1','127.0.0.2','127.0.0.3' ] }
     end
 
   end
@@ -95,30 +96,62 @@ describe Iqeo::Ping::Pinger do
 
     before( :all ) { @pinger = Iqeo::Ping::Pinger.new '127.0.0.252-254' }
 
-    it( 'starts' ) do
+    it( '#start' ) do
       expect { @pinger.start }.to_not raise_error
       sleep 0.1 # wait for it
     end
 
     context 'state' do
-      it( 'is started' )          { expect( @pinger ).to be_started }
-      it( 'is running' )          { expect( @pinger ).to be_running }
-      it( 'is not finished' )     { expect( @pinger ).to_not be_finished }
+      it( 'is #started?' )   { expect( @pinger ).to be_started }
+      it( 'is #running?' )   { expect( @pinger ).to be_running }
+      it( 'not #finished?' ) { expect( @pinger ).to_not be_finished }
     end
 
-    context 'threads' do
-      it( 'one per host' )        { expect( @pinger.threads.count ).to eq @pinger.hostspec.count }
-      it( 'some alive' )          { expect( @pinger.threads.none?(&:alive?) ).to be false }
+    context '#threads' do
+      it( 'one per host' )   { expect( @pinger.threads.count ).to eq @pinger.hostspec.count }
+      it( 'some alive' )     { expect( @pinger.threads.any?(&:alive?) ).to be true }
+      it( 'some timeout' )   { expect( @pinger.threads.any? { |t| t.value[:exception].is_a? TimeoutError } ).to be true }
     end
 
-    context 'finishes' do
-      it( 'with timeout' )        { expect( @pinger.threads.first.value[:exception] ).to be_a TimeoutError }
+    context '#results' do
+      it( 'expected keys' )  { expect( @pinger.results ).to all( include :ip, :ping, :time, :exception ) }
+      it( 'for each host' )  { expect( @pinger.results.collect { |r| r[:ip] } ).to eq [ '127.0.0.252','127.0.0.253','127.0.0.254' ] }
     end
 
-    context 'results' do
-      it( 'for number of hosts' ) { expect( @pinger.results.count ).to eq @pinger.hostspec.count }
-      it( 'expected keys' )       { expect( @pinger.results ).to all( include :ip, :ping, :time, :exception ) }
-      it( 'for each host' )       { expect( @pinger.results.collect { |r| r[:ip] } ).to eq [ '127.0.0.252','127.0.0.253','127.0.0.254' ] }
+  end
+
+  context 'stop scan' do
+
+    before( :all ) { @pinger = Iqeo::Ping::Pinger.new '127.0.0.1-3,252-254' }
+
+    it( '#start' ) do
+      expect { @pinger.start }.to_not raise_error
+    end
+
+    context 'state' do
+      before( :all )         { sleep 0.1 } # wait for it
+      it( 'is #started?' )   { expect( @pinger ).to be_started }
+      it( 'is #running?' )   { expect( @pinger ).to be_running }
+      it( 'not #finished?' ) { expect( @pinger ).to_not be_finished }
+    end
+
+    context '#stop scan'  do
+      before( :all ) do 
+        @stop = @pinger.stop
+        sleep 0.1 # wait for it
+      end
+      it ( 'returns true' )  { expect( @stop ).to be true }
+      it ( 'kills threads' ) { expect( @pinger.threads ).to all( not_be_alive ) }
+    end
+
+    context '#results' do
+      context 'for complete hosts' do
+        it( 'have expected keys' ) { expect( @pinger.results[0..2] ).to all( include :ip, :ping, :time, :exception ) }
+        it( 'for each host' )      { expect( @pinger.results[0..2].collect { |r| r[:ip] } ).to eq [ '127.0.0.1','127.0.0.2','127.0.0.3' ] }
+      end
+      context 'for incomplete hosts' do
+        it( 'are nil' )            { expect( @pinger.results[3..5] ).to all( be_nil ) }
+      end
     end
 
   end
