@@ -1,5 +1,5 @@
 module Iqeo
-  module Ping
+  module Scan
     VERSION = "0.1.0"
   end
 end

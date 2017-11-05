@@ -1,17 +1,16 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'iqeo/ping/version'
+require 'iqeo/scan/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "iqeo-ping"
-  spec.version       = Iqeo::Ping::VERSION
+  spec.name          = "iqeo-scan"
+  spec.version       = Iqeo::Scan::VERSION
   spec.authors       = ["Gerard Fowley"]
   spec.email         = ["gerard.fowley@iqeo.net"]
 
-  spec.summary       = %q{TODO: Write a short summary, because Rubygems requires one.}
-  spec.description   = %q{TODO: Write a longer description or delete this line.}
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.summary       = "Ping or scan hosts via ICMP, TCP, UDP"
+  spec.homepage      = "http://iqeo.net"
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
   # delete this section to allow pushing this gem to any host.
