@@ -6,6 +6,20 @@ module Scan
 
 class Scanner
 
+  # TODO: default and choose host or port response interpretation
+  # TODO: accept multiple protocols
+  # TODO: accept multiple ports, and a port-spec like nmap
+  # TODO: default multiple common ports for protocol = TCP, UDP, default
+  # TODO: default protocol will ICMP ping, TCP, UDP common parts 
+ 
+  DEFAULT_PORTS = {
+    icmp: [ nil ],
+    tcp: [ 7, 9, 20, 21, 22, 23, 25, 53, 80, 88, 110, 111, 135, 139, 143, 194, 389, 443, 445, 464, 500, 515, 631, 636, 873, 993, 994, 995, 1080, 1433, 1434, 3389, 9100 ],
+    udp: [ 9, 53, 67, 69, 123, 137, 161, 162, 514, 1812, 5353 ]
+  }
+
+  DEFAULT_PROTOCOLS = [ :icmp, :tcp, :udp ]
+
   TIMEOUT = 3
   PROTOCOL = :icmp
   PORT = nil
