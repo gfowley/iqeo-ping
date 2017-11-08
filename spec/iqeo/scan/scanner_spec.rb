@@ -9,7 +9,7 @@ describe Iqeo::Scan::Scanner do
   SLOW_HOSTS          = [ '127.0.0.252','127.0.0.253','127.0.0.254' ]
   SLOW_HOSTS_SPEC     = '127.0.0.252-254'
   SLOW_HOSTS_IPTABLES = '127.0.0.252/30'
-  RESULT_KEYS         = [ :ip, :ping, :time, :exception ]
+  RESULT_KEYS         = [ :address, :protocol, :port, :ping, :time, :exception ]
 
   # before( :all ) { `iptables -I INPUT -d #{SLOW_HOSTS_IPTABLES} -j DROP` }
 
@@ -30,34 +30,79 @@ describe Iqeo::Scan::Scanner do
     end
   end
 
-  context '.new' do
+  context 'initializes' do
 
-    context 'with defaults' do
-      it( 'accepts an IP address string' ) { expect { Iqeo::Scan::Scanner.new HOST_SPEC }.to_not raise_error                                 }
-      it( 'accepts a Hostspec'           ) { expect { Iqeo::Scan::Scanner.new( Iqeo::Hostspec::Hostspec.new HOST_SPEC ) }.to_not raise_error }
-      it( 'requires an argument'         ) { expect { Iqeo::Scan::Scanner.new }.to raise_error ArgumentError                                 }
-    end
+    it ( 'requires an argument'         ) { expect { Iqeo::Scan::Scanner.new }.to raise_error ArgumentError }
+    it ( 'accepts an IP address string' ) { expect { Iqeo::Scan::Scanner.new HOST_SPEC }.to_not raise_error                                 }
+    it ( 'accepts a Hostspec'           ) { expect { Iqeo::Scan::Scanner.new( Iqeo::Hostspec::Hostspec.new HOST_SPEC ) }.to_not raise_error }
 
-    context 'with specifics' do
-     
-      it ( 'accepts timeout' )  { expect( Iqeo::Scan::Scanner.new( HOST_SPEC, timeout: 99).timeout ).to eq 99 }
+    it ( 'accepts timeout'              ) { expect( Iqeo::Scan::Scanner.new( HOST_SPEC, timeout: 99).timeout ).to eq 99 }
 
-      context 'ICMP' do
-        before( :all )           { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, protocol: :icmp, timeout: 99 }
-        it( 'accepts protocol' ) { expect( @scanner.protocol ).to eq :icmp }
-        it( 'sets port'        ) { expect( @scanner.port ).to be nil       }
+    context 'default services' do
+
+      context 'none specified' do
+
+        # TODO: test services: {}, services: nil
+
+        context 'none specified' do
+          before( :all ) { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC }
+          it( 'ICMP' ) { expect( @scanner.services[:icmp] ).to eq Iqeo::Scan::Scanner::DEFAULT_ICMP_PORTS }
+          it( 'TCP'  ) { expect( @scanner.services[:tcp]  ).to eq Iqeo::Scan::Scanner::DEFAULT_TCP_PORTS  }
+          it( 'UDP'  ) { expect( @scanner.services[:udp]  ).to eq Iqeo::Scan::Scanner::DEFAULT_UDP_PORTS  }
+        end
+
       end
 
-      context 'TCP' do
-        before( :all )           { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, protocol: :tcp, timeout: 99 }
-        it( 'accepts protocol' ) { expect( @scanner.protocol ).to eq :tcp }
-        it( 'sets port'        ) { expect( @scanner.port ).to be 80       }
+      context 'single specified' do
+
+        # todo: test services: { protocol => nil }
+
+        context 'ICMP specified' do
+          before( :all ) { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { icmp: [] } }
+          it( 'ICMP'   ) { expect( @scanner.services[:icmp] ).to eq Iqeo::Scan::Scanner::DEFAULT_ICMP_PORTS }
+          it( 'no TCP' ) { expect( @scanner.services[:tcp] ).to be_nil }
+          it( 'no UDP' ) { expect( @scanner.services[:udp] ).to be_nil }
+        end
+
+        context 'TCP specified' do
+          before( :all )  { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { tcp: [] } }
+          it( 'no ICMP' ) { expect( @scanner.services[:icmp] ).to be_nil }
+          it( 'TCP'     ) { expect( @scanner.services[:tcp] ).to eq Iqeo::Scan::Scanner::DEFAULT_TCP_PORTS }
+          it( 'no UDP'  ) { expect( @scanner.services[:udp] ).to be_nil }
+        end
+
+        context 'UDP specified' do
+          before( :all )           { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { udp: [] } }
+          it( 'no ICMP' ) { expect( @scanner.services[:icmp] ).to be_nil }
+          it( 'UDP'     ) { expect( @scanner.services[:udp] ).to eq Iqeo::Scan::Scanner::DEFAULT_UDP_PORTS }
+          it( 'no TCP'  ) { expect( @scanner.services[:tcp] ).to be_nil }
+        end
+
       end
 
-      context 'UDP' do
-        before( :all )           { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, protocol: :udp, timeout: 99 }
-        it( 'accepts protocol' ) { expect( @scanner.protocol ).to eq :udp }
-        it( 'sets port'        ) { expect( @scanner.port ).to be 53       }
+      context 'multiple specified' do
+
+        context 'TCP & UDP specified' do
+          before( :all )  { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { tcp: [], udp: [] } }
+          it( 'no ICMP' ) { expect( @scanner.services[:icmp] ).to be_nil }
+          it( 'TCP'     ) { expect( @scanner.services[:tcp] ).to eq Iqeo::Scan::Scanner::DEFAULT_TCP_PORTS }
+          it( 'UDP'     ) { expect( @scanner.services[:udp] ).to eq Iqeo::Scan::Scanner::DEFAULT_UDP_PORTS }
+        end
+
+        context 'ICMP & TCP specified' do
+          before( :all )  { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { icmp: [], tcp: [] } }
+          it( 'ICMP'   ) { expect( @scanner.services[:icmp] ).to eq Iqeo::Scan::Scanner::DEFAULT_ICMP_PORTS }
+          it( 'TCP'     ) { expect( @scanner.services[:tcp] ).to eq Iqeo::Scan::Scanner::DEFAULT_TCP_PORTS }
+          it( 'no UDP'  ) { expect( @scanner.services[:udp] ).to be_nil }
+        end
+
+        context 'ICMP & UDP specified' do
+          before( :all )  { @scanner = Iqeo::Scan::Scanner.new HOST_SPEC, services: { icmp: [], udp: [] } }
+          it( 'ICMP'   ) { expect( @scanner.services[:icmp] ).to eq Iqeo::Scan::Scanner::DEFAULT_ICMP_PORTS }
+          it( 'no TCP'  ) { expect( @scanner.services[:tcp] ).to be_nil }
+          it( 'UDP'     ) { expect( @scanner.services[:udp] ).to eq Iqeo::Scan::Scanner::DEFAULT_UDP_PORTS }
+        end
+
       end
 
     end
@@ -101,7 +146,7 @@ describe Iqeo::Scan::Scanner do
 
     context '#results' do
       it( 'expected keys'  ) { expect( @scanner.results ).to all( include *RESULT_KEYS )                 }
-      it( 'expected hosts' ) { expect( @scanner.results.collect { |r| r[:ip] } ).to eq FAST_HOSTS        }
+      it( 'expected hosts' ) { expect( @scanner.results.collect { |r| r[:address] } ).to eq FAST_HOSTS        }
       it( 'no timeouts'    ) { expect( @scanner.results.collect { |r| r[:exception] } ).to all( eq nil ) }
     end
 
@@ -124,7 +169,7 @@ describe Iqeo::Scan::Scanner do
     context '#results' do
       before( :each )       { wait_for { @scanner.finished? } }
       it( 'expected keys' ) { expect( @scanner.results ).to all( include *RESULT_KEYS )                            }
-      it( 'for each host' ) { expect( @scanner.results.collect { |r| r[:ip] } ).to eq SLOW_HOSTS                   }
+      it( 'for each host' ) { expect( @scanner.results.collect { |r| r[:address] } ).to eq SLOW_HOSTS                   }
       it( 'all timed out' ) { expect( @scanner.results.collect { |r| r[:exception] } ).to all( eq Timeout::Error ) }
     end
 
@@ -147,7 +192,7 @@ describe Iqeo::Scan::Scanner do
     end
 
     context '#results' do
-      it( 'for fast hosts' ) { expect( @scanner.results.compact.collect { |r| r[:ip] } ).to eq FAST_HOSTS }
+      it( 'for fast hosts' ) { expect( @scanner.results.compact.collect { |r| r[:address] } ).to eq FAST_HOSTS }
       it( 'nil for others' ) { expect( @scanner.results ).to include nil                                  }
     end
 

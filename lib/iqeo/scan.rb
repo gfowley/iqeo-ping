@@ -1,5 +1,5 @@
-require 'iqeo/scan/version'
-require 'iqeo/scan/scanner'
+require_relative 'scan/version'
+require_relative 'scan/scanner'
 
 module Iqeo
   module Scan
