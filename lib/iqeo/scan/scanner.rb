@@ -53,26 +53,40 @@ class Scanner
 
   def configure_services_defaults services
     services.each do |protocol,ports|
-      if ( ports.nil? || ports.empty? || ports[0].nil? )
+      if protocol == :icmp || ( ports.nil? || ports.empty? || ports[0].nil? )
         services[protocol] = DEFAULT_SERVICES[protocol] if DEFAULT_SERVICES.has_key? protocol 
       end
     end
     services
   end
 
+  # TODO: threads should be a flat array, results hierarchial hash
+  # build results hash first, including a thread key, extract thread key and flatten to array ?
+  
   def start
     unless started?
-      @threads = @hostspec.collect do |address|
-        @services.collect do |protocol,ports|
-          ports.collect do |port|
-            Thread.new do
-              ping = @ping_classes[protocol].new(address,port,@timeout)
-              result = ping.ping
-              { address: address, protocol: protocol, port: port, ping: result, time: ping.duration, exception: ping.exception }
-            end
-          end
-        end
-      end.flatten
+      @threads = []
+      @results = @hostspec.collect do |address|
+        [
+          address,
+          @services.collect do |protocol,ports|
+            [
+              protocol,
+              ports.collect do |port|
+                @threads << Thread.new do
+                  ping = @ping_classes[protocol].new(address,port,@timeout)
+                  { address:  address,
+                    protocol: protocol,
+                    port:     port,
+                    result:   { ping: ping.ping, time: ping.duration, exception: ping.exception }
+                  }
+                end
+                [ port, nil ]
+              end.to_h
+            ]
+          end.to_h
+        ]
+      end.to_h
     end
   end
 
@@ -88,8 +102,9 @@ class Scanner
     started? && @threads.none?(&:alive?)
   end
 
+  # TODO: this should really be status !!
   def results
-    started? ? collect_thread_values_without_blocking : []
+    started? ? update_results : nil
   end
 
   def stop
@@ -98,12 +113,15 @@ class Scanner
 
   private
 
-  def collect_thread_values_without_blocking
+  def update_results
     @threads.collect do |thread|
       # calling value for running thread will block until it finishes
       # status = nil || false for finished thread
       thread.status ? nil : thread.value
+    end.compact.each do |tv|
+      @results[tv[:address]][tv[:protocol]][tv[:port]] = tv[:result]
     end
+    @results
   end
 
 end
