@@ -6,13 +6,7 @@ module Scan
 
 class Scanner
 
-  # TODO: default and choose host or port response interpretation
-  # TODO: accept multiple protocols
-  # TODO: accept multiple ports, and a port-spec like nmap
-  # TODO: default multiple common ports for protocol = TCP, UDP, default
-  # TODO: default protocol will ICMP ping, TCP, UDP common parts 
-  
-  # TODO: maintain results hash structure: { address => { protocol => { port => result } } }
+  # TODO: choose host or port response interpretation
   # TODO: accept a portspec for { protocol => portspec } (a nmap port spec)
 
   DEFAULT_ICMP_PORTS = [ nil ]
@@ -60,9 +54,6 @@ class Scanner
     services
   end
 
-  # TODO: threads should be a flat array, results hierarchial hash
-  # build results hash first, including a thread key, extract thread key and flatten to array ?
-  
   def start
     unless started?
       @threads = []
@@ -102,7 +93,6 @@ class Scanner
     started? && @threads.none?(&:alive?)
   end
 
-  # TODO: this should really be status !!
   def results
     started? ? update_results : nil
   end
