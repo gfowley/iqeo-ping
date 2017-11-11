@@ -32,5 +32,6 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "net-ping"
   spec.add_runtime_dependency "iqeo-hostspec"
+  spec.add_runtime_dependency "gli"
 
 end
