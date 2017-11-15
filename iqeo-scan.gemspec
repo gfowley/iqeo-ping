@@ -8,7 +8,6 @@ Gem::Specification.new do |spec|
   spec.version       = Iqeo::Scan::VERSION
   spec.authors       = ["Gerard Fowley"]
   spec.email         = ["gerard.fowley@iqeo.net"]
-
   spec.summary       = "Ping or scan hosts via ICMP, TCP, UDP"
   spec.homepage      = "http://iqeo.net"
 
@@ -29,6 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "pry"
+  spec.add_development_dependency "aruba"
 
   spec.add_runtime_dependency "net-ping"
   spec.add_runtime_dependency "iqeo-hostspec"

@@ -12,10 +12,12 @@ describe Iqeo::Scan::Scanner do
   RESULT_KEYS         = [ :ping, :time, :exception ]
 
   DEFAULT_SERVICES   = Iqeo::Scan::Scanner::DEFAULT_SERVICES
+  DEFAULT_PROTOCOLS  = Iqeo::Scan::Scanner::DEFAULT_PROTOCOLS
   DEFAULT_TCP_PORTS  = Iqeo::Scan::Scanner::DEFAULT_TCP_PORTS
   DEFAULT_UDP_PORTS  = Iqeo::Scan::Scanner::DEFAULT_UDP_PORTS
   DEFAULT_ICMP_PORTS = Iqeo::Scan::Scanner::DEFAULT_ICMP_PORTS
-  TIMEOUT            = Iqeo::Scan::Scanner::TIMEOUT
+  DEFAULT_TIMEOUT    = Iqeo::Scan::Scanner::DEFAULT_TIMEOUT
+  DEFAULT_ATTEMPTS   = Iqeo::Scan::Scanner::DEFAULT_ATTEMPTS
 
   PORTS_PER_HOST     = DEFAULT_TCP_PORTS.count + DEFAULT_UDP_PORTS.count + DEFAULT_ICMP_PORTS.count
 
@@ -48,7 +50,7 @@ describe Iqeo::Scan::Scanner do
     it ( 'accepts a Hostspec'           ) { expect { Iqeo::Scan::Scanner.new( Iqeo::Hostspec::Hostspec.new HOST_SPEC ) }.to_not raise_error }
 
     it ( 'accepts timeout'  ) { expect( Iqeo::Scan::Scanner.new( HOST_SPEC, timeout: 99).timeout ).to eq 99 }
-    it ( 'defaults timeout' ) { expect( Iqeo::Scan::Scanner.new( HOST_SPEC             ).timeout ).to eq TIMEOUT  }
+    it ( 'defaults timeout' ) { expect( Iqeo::Scan::Scanner.new( HOST_SPEC             ).timeout ).to eq DEFAULT_TIMEOUT  }
 
     context 'default ports' do
 

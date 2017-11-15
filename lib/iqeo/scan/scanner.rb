@@ -19,6 +19,10 @@ class Scanner
     udp:  DEFAULT_UDP_PORTS
   }
 
+  DEFAULT_PROTOCOLS = [ :icmp, :tcp ]
+  DEFAULT_TIMEOUT   = 2
+  DEFAULT_ATTEMPTS  = 2
+
   TIMEOUT = 2
   PROTOCOL = :icmp
   PORT = nil
