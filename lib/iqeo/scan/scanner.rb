@@ -58,6 +58,12 @@ class Scanner
     services
   end
 
+  # TODO: spec_threads => address_threads => protocol_threads => port_threads
+  #  each gathering and summarizing results of sub-threads
+  #  needs a thread-safe queues to safely aggregate results 
+  #  provids simple state result for each port : open/close/filter ?
+  #  provide simple up/down result for each host (+ state detail ?)
+
   def start
     unless started?
       @threads = []
@@ -70,10 +76,16 @@ class Scanner
               ports.collect do |port|
                 @threads << Thread.new do
                   ping = @ping_classes[protocol].new(address,port,@timeout)
-                  { address:  address,
+                  {
+                    address:  address,
                     protocol: protocol,
                     port:     port,
-                    result:   { ping: ping.ping, time: ping.duration, exception: ping.exception }
+                    result:   {
+                      state:     port_state( protocol, ping.ping, ping.exception ),
+                      ping:      ping.ping,
+                      time:      ping.duration,
+                      exception: ping.exception,
+                    }
                   }
                 end
                 [ port, nil ]
@@ -106,6 +118,25 @@ class Scanner
   end
 
   private
+
+  def port_state protocol, ping, exception
+    case protocol
+    when :icmp
+      ping ? :open : :none
+    when :tcp
+      case 
+      when ping then :open  
+      when exception.class == Errno::ECONNREFUSED then :close 
+      when exception.class == Timeout::Error      then :none 
+      end
+    when :udp
+      case 
+      when ping then :open  
+      when exception.class == Errno::ECONNREFUSED then :close 
+      when exception.class == Timeout::Error      then :none
+      end
+    end
+  end
 
   def update_results
     @threads.collect do |thread|

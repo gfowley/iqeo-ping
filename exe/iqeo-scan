@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 require 'gli'
 require 'iqeo/scan'
+require 'pry'
+require 'awesome_print'
 
 def wait_for time
   Timeout.timeout time do
@@ -18,7 +20,7 @@ subcommand_option_handling :normal
 arguments :strict
 sort_help :manually
 
-ENV['GLI_DEBUG'] = 'true'
+# ENV['GLI_DEBUG'] = 'true'
 
 class UpperArray < Array ; end
 accept UpperArray do |param|
@@ -34,7 +36,10 @@ switch [:c, :color],   default_value: true, desc: 'Color output'
 switch [:d, :debug],   negatable: false,    desc: 'Debugging output and error stacktrace' 
 switch [:v, :verbose], negatable: false,    desc: 'Verbose output'
 
-# if ...[:debug] set GLI_DEBUG ? env var ?
+pre do |global_options,command,options,args|
+  ENV['GLI_DEBUG'] = 'true' if global_options[:d]
+  true
+end
 
 desc 'Scan hosts to detect if up.'
 long_desc 'Detects if hosts are up and open services. Defaults to ICMP (if root) and common TCP ports for speed.'
@@ -63,22 +68,28 @@ command :scan do |c|
   c.flag [:a, :attempts],  desc: 'Attempts',  default_value: Iqeo::Scan::Scanner::DEFAULT_ATTEMPTS
 
   c.action do |global_options,options,args|
-  
-    ENV['GLI_DEBUG'] = 'true' if global_options[:debug]
 
-    puts options.inspect
+    puts options.inspect if global_options[:debug]
 
     services = Hash[ options[:protocols].map { |p| p.downcase.to_sym }.map do |protocol|
       [ protocol, options[protocol] ]
     end ]
-    puts services.inspect
+    puts services.inspect if global_options[:debug]
 
     scanners = args.map do |hostspec|
       Iqeo::Scan::Scanner.new hostspec, services: services
     end
     scanners.each(&:start)
     wait_for(10) { scanners.all?(&:finished?) }     
-    puts scanners.map(&:results).inspect
+    ap scanners.map(&:results) if global_options[:debug]
+
+    output =  scanners.map do |scanner|
+      scanner.results.map do |address,protocols|
+        "#{address} state?"
+      end
+    end.flatten
+    puts output.join("\n")
+
   end
 
 end

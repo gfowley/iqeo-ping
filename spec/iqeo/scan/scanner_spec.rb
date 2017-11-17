@@ -9,7 +9,7 @@ describe Iqeo::Scan::Scanner do
   SLOW_HOSTS          = [ '127.0.0.252','127.0.0.253','127.0.0.254' ]
   SLOW_HOSTS_SPEC     = '127.0.0.252-254'
   SLOW_HOSTS_IPTABLES = '127.0.0.252/30'
-  RESULT_KEYS         = [ :ping, :time, :exception ]
+  RESULT_KEYS         = [ :state, :ping, :time, :exception ]
 
   DEFAULT_SERVICES   = Iqeo::Scan::Scanner::DEFAULT_SERVICES
   DEFAULT_PROTOCOLS  = Iqeo::Scan::Scanner::DEFAULT_PROTOCOLS
