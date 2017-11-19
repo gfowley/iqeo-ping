@@ -20,8 +20,6 @@ subcommand_option_handling :normal
 arguments :strict
 sort_help :manually
 
-# ENV['GLI_DEBUG'] = 'true'
-
 class UpperArray < Array ; end
 accept UpperArray do |param|
   UpperArray.new( param.split(',').map { |item| item.strip.upcase } )
@@ -35,6 +33,8 @@ end
 switch [:c, :color],   default_value: true, desc: 'Color output'
 switch [:d, :debug],   negatable: false,    desc: 'Debugging output and error stacktrace' 
 switch [:v, :verbose], negatable: false,    desc: 'Verbose output'
+
+flag   [:w, :timeout], desc: 'Global timeout',   default_value: 30
 
 pre do |global_options,command,options,args|
   ENV['GLI_DEBUG'] = 'true' if global_options[:d]
@@ -69,23 +69,37 @@ command :scan do |c|
 
   c.action do |global_options,options,args|
 
-    puts options.inspect if global_options[:debug]
+    ap options if global_options[:debug]
 
-    services = Hash[ options[:protocols].map { |p| p.downcase.to_sym }.map do |protocol|
-      [ protocol, options[protocol] ]
-    end ]
-    puts services.inspect if global_options[:debug]
+    services = Hash[
+      options[:protocols].map { |p| p.downcase.to_sym }.map do |protocol|
+        [ protocol, options[protocol] ]
+      end
+    ]
+
+    ap services if global_options[:debug]
 
     scanners = args.map do |hostspec|
       Iqeo::Scan::Scanner.new hostspec, services: services
     end
     scanners.each(&:start)
-    wait_for(10) { scanners.all?(&:finished?) }     
+
+    wait_for( global_options[:timeout] ) do
+      scanners.all?(&:finished?)
+    end     
+
     ap scanners.map(&:results) if global_options[:debug]
 
-    output =  scanners.map do |scanner|
-      scanner.results.map do |address,protocols|
-        "#{address} state?"
+    output = scanners.map do |scanner|
+      scanner.results.map do |host,result|
+        [
+          "#{host} #{result[:state]}",
+          result[:scan].map do |protocol,ports|
+            ports.map do |number,port|
+              "#{protocol}/#{number} #{port[:state]}"
+            end
+          end.flatten
+        ]
       end
     end.flatten
     puts output.join("\n")

@@ -58,66 +58,85 @@ class Scanner
     services
   end
 
-  # TODO: spec_threads => address_threads => protocol_threads => port_threads
-  #  each gathering and summarizing results of sub-threads
-  #  needs a thread-safe queues to safely aggregate results 
-  #  provids simple state result for each port : open/close/filter ?
-  #  provide simple up/down result for each host (+ state detail ?)
-
   def start
-    unless started?
-      @threads = []
-      @results = @hostspec.collect do |address|
-        [
-          address,
-          @services.collect do |protocol,ports|
-            [
-              protocol,
-              ports.collect do |port|
-                @threads << Thread.new do
-                  ping = @ping_classes[protocol].new(address,port,@timeout)
-                  {
-                    address:  address,
-                    protocol: protocol,
-                    port:     port,
-                    result:   {
-                      state:     port_state( protocol, ping.ping, ping.exception ),
-                      ping:      ping.ping,
-                      time:      ping.duration,
-                      exception: ping.exception,
-                    }
-                  }
-                end
-                [ port, nil ]
-              end.to_h
-            ]
-          end.to_h
-        ]
-      end.to_h
+    unless @started
+      init_results
+      init_threads
     end
+    @started = true
   end
 
   def started?
-    !!@threads
+    !!@started
   end
 
   def running?
-    started? && @threads.any?(&:alive?)
+    started? && @threads.values.any?(&:alive?)
   end
 
   def finished?
-    started? && @threads.none?(&:alive?)
-  end
-
-  def results
-    started? ? update_results : nil
+    started? && @threads.values.none?(&:alive?)
   end
 
   def stop
-    !!( started? && @threads.each(&:kill) )
+    !!( started? && @threads.values.each(&:kill) )
+  end
+
+  def results
+    return @results if @results_are_final
+    if started? 
+      if finished?
+        finish_results
+        @results_are_final = true
+      else
+        update_results
+      end
+      @results
+    end
   end
 
   private
+
+  def init_threads
+    @thread_results = Queue.new
+    @threads = @hostspec.map do |address|
+      [ address, address_thread( address ) ]
+    end.to_h
+  end
+
+  def address_thread address
+    Thread.new do
+      @services.map do |protocol,ports|
+        protocol_thread address, protocol, ports
+      end.each(&:join)
+    end
+  end
+
+  def protocol_thread address, protocol, ports
+    Thread.new do
+      ports.map do |port|
+        port_thread address, protocol, port
+      end.each(&:join)
+    end
+  end
+
+  def port_thread address, protocol, port
+    Thread.new do
+      pinger = @ping_classes[protocol].new(address,port,@timeout)
+      ping = pinger.ping
+      @thread_results.push(
+        {
+          address:   address,
+          protocol:  protocol,
+          port:      port,
+          state:     port_state( protocol, ping, pinger.exception ),
+          ping:      ping,
+          time:      pinger.duration,
+          exception: pinger.exception,
+        }
+      )
+    end
+  end
 
   def port_state protocol, ping, exception
     case protocol
@@ -138,15 +157,45 @@ class Scanner
     end
   end
 
+  def init_results
+    @results = @hostspec.map do |address|
+      [ 
+        address,
+        {
+          state: :unknown,
+          scan:  @services.map do |protocol,ports|
+            [
+              protocol,
+              ports.map do |port|
+                [ port, nil ]
+              end.to_h
+            ]
+          end.to_h
+        }
+      ]
+    end.to_h
+  end
+
+  def finish_results
+    update_results
+    finalize_host_states
+  end
+
   def update_results
-    @threads.collect do |thread|
-      # calling value for running thread will block until it finishes
-      # status = nil || false for finished thread
-      thread.status ? nil : thread.value
-    end.compact.each do |tv|
-      @results[tv[:address]][tv[:protocol]][tv[:port]] = tv[:result]
+    until @thread_results.empty? do
+      thread_result = @thread_results.pop
+      host = @results[thread_result[:address]]
+      host[:scan][thread_result[:protocol]][thread_result[:port]] = thread_result
+      host[:state] = host_state( thread_result )
     end
-    @results
+  end
+
+  def finalize_host_states
+    @results.each { |_,host| host[:state] = :down unless host[:state] == :up  }
+  end
+
+  def host_state thread_result
+    :up if thread_result[:state] == :open || thread_result[:state] == :close
   end
 
 end
