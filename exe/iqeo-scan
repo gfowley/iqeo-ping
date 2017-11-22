@@ -93,17 +93,89 @@ command :scan do |c|
     output = scanners.map do |scanner|
       scanner.results.map do |host,result|
         [
-          "#{host} #{result[:state]}",
+          "Host #{host} #{render_host_state(result[:state])} (#{render_names(Resolv.getnames(host))})",
+          "Port_____ State_ Service_____",
           result[:scan].map do |protocol,ports|
             ports.map do |number,port|
-              "#{protocol}/#{number} #{port[:state]}"
+              num_proto = "#{number}/#{protocol}"
+              text = "#{num_proto.ljust(9)} #{render_port_state(port[:state])}"
+              text << " #{service(number,protocol)}"
             end
-          end.flatten
+          end.flatten,
+          ""
         ]
       end
     end.flatten
     puts output.join("\n")
 
+  end
+
+  BLACK   = "\e[30m"
+  RED     = "\e[31m"
+  GREEN   = "\e[32m"
+  YELLOW  = "\e[33m"
+  BLUE    = "\e[34m"
+  MAGENTA = "\e[35m"
+  CYAN    = "\e[36m"
+  WHITE   = "\e[37m"
+  RESET   = "\e[0m"
+
+  HOST_STATE_COLORS = {
+    up:   GREEN,
+    down: RED
+  }
+
+  PORT_STATE_COLORS = {
+    open:  GREEN,
+    close: RED,
+    none:  YELLOW
+  }
+
+  def render_host_state state
+    text = state.to_s.upcase
+    return text unless STDOUT.tty?
+    "#{HOST_STATE_COLORS[state]}#{text}#{RESET}"
+  end
+
+  def render_port_state state
+    text = state.to_s.ljust(6)
+    return text unless STDOUT.tty?
+    "#{PORT_STATE_COLORS[state]}#{text}#{RESET}"
+  end
+
+  def render_names names
+    "#{BLUE}#{names.join(',')}#{RESET}"
+  end
+
+  def service number, protocol
+    Socket.getservbyport number, protocol.to_s
+  rescue SocketError, TypeError
+    # SocketError raised for service for found
+    # TypeError for port number == nil
+    # just return empty string
+    ""
+  end
+
+end
+
+
+desc 'Update services file'
+long_desc 'Replace services file with assignments downloaded from iana.org.'
+command :"update-services" do |c|
+
+  c.action do |global_options,options,args|
+    require 'open-uri'
+    SERVICES_URL = "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv"
+    lines = open(SERVICES_URL).readlines("\r\n")
+    service_lines = lines.map { |l| l.split(',')[0..3] }.select { |s| s[1] =~ /\d+/ }
+    tcp_services = service_lines.inject({}) { |h,s| h[s[1].to_i] = { name: s[0], desc: s[3] } if s[2] == 'tcp' ; h }
+    udp_services = service_lines.inject({}) { |h,s| h[s[1].to_i] = { name: s[0], desc: s[3] } if s[2] == 'udp' ; h }
+    services = {
+      tcp: tcp_services,
+      udp: udp_services
+    }
+    File.write "#{__dir__}/../lib/iqeo/scan/services.yml", services.to_yaml
+    puts "Updated services: #{service_lines.count}"
   end
 
 end

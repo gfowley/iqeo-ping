@@ -6,7 +6,11 @@ module Scan
 
 class Scanner
 
-  # TODO: choose host or port response interpretation
+  # FIX: DEFAULT_PROTOCOLS should only include :icmp for root or capabilities ?
+  # FIX: strange excrption results for multiple UDP ports
+  
+  # TODO: keep name if originally given name instead of IP or hostspec
+  # TODO: DEFAULT_ICMP_PORTS = [:echo] instead of nil
   # TODO: accept a portspec for { protocol => portspec } (a nmap port spec)
 
   DEFAULT_ICMP_PORTS = [ nil ]
@@ -143,16 +147,25 @@ class Scanner
     when :icmp
       ping ? :open : :none
     when :tcp
+      # FIX: why isn't "Errno::ECONNREFUSED < SystemCallError" detected below ?
       case 
       when ping then :open  
-      when exception.class == Errno::ECONNREFUSED then :close 
-      when exception.class == Timeout::Error      then :none 
+      when [ Errno::ECONNREFUSED,
+             Errno::ECONNRESET,  
+             Errno::ECONNABORTED  ].include?( exception.class ) then :close 
+      when [ Errno::EHOSTUNREACH,  
+             Timeout::Error,
+             NilClass             ].include?( exception.class ) then :none 
+      else :unknown
       end
     when :udp
       case 
       when ping then :open  
-      when exception.class == Errno::ECONNREFUSED then :close 
-      when exception.class == Timeout::Error      then :none
+      when [ Errno::ECONNREFUSED  ].include?( exception.class ) then :close 
+      when [ Errno::EHOSTUNREACH,
+             Timeout::Error,
+             NilClass             ].include?( exception.class ) then :none 
+      else :unknown
       end
     end
   end
@@ -186,15 +199,15 @@ class Scanner
       thread_result = @thread_results.pop
       host = @results[thread_result[:address]]
       host[:scan][thread_result[:protocol]][thread_result[:port]] = thread_result
-      host[:state] = host_state( thread_result )
+      host[:state] = host_state_up( thread_result ) if host[:state] == :unknown
     end
   end
 
   def finalize_host_states
-    @results.each { |_,host| host[:state] = :down unless host[:state] == :up  }
+    @results.each { |_,host| host[:state] = :down unless host[:state] == :up }
   end
 
-  def host_state thread_result
+  def host_state_up thread_result
     :up if thread_result[:state] == :open || thread_result[:state] == :close
   end
 
